@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>2026社區消費連環賞 - 優惠券管理器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #F5F0FA;
+      color: #1e293b;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    /* 2026 標題特效 */
+    .title-stroke {
+      position: absolute;
+      left: 0;
+      top: 0;
+      -webkit-text-stroke: 3px white;
+      color: white;
+      user-select: none;
+    }
+    .title-stroke-yellow {
+      -webkit-text-stroke: 3px #fff59d;
+      color: #fff59d;
+    }
+    .title-gradient-red {
+      position: relative;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      background-image: linear-gradient(to bottom, #e95a74, #f39c4e);
+    }
+    .title-gradient-blue {
+      position: relative;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      background-image: linear-gradient(to bottom, #283593, #7b1fa2);
+    }
+    
+    /* 隱藏預設的時間選擇器圖標以節省空間 */
+    input[type="time"]::-webkit-calendar-picker-indicator {
+      background: transparent;
+      bottom: 0;
+      color: transparent;
+      cursor: pointer;
+      height: auto;
+      left: 0;
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部導航 -->
+  <header class="flex-none bg-white px-3 py-1.5 shadow-sm z-10 flex items-center justify-between">
+    <div class="flex items-center gap-1 text-[16px] sm:text-[20px] font-black italic tracking-wider drop-shadow-sm whitespace-nowrap overflow-hidden">
+      <div class="relative inline-block">
+        <span class="title-stroke">2026</span>
+        <span class="title-gradient-red">2026</span>
+      </div>
+      <div class="relative inline-block">
+        <span class="title-stroke title-stroke-yellow">社區消費</span>
+        <span class="title-gradient-blue">社區消費</span>
+      </div>
+      <div class="relative hidden sm:inline-block">
+        <span class="title-stroke">連環賞</span>
+        <span class="title-gradient-red">連環賞</span>
+      </div>
+    </div>
+    
+    <select id="week-selector" onchange="changeWeek(this.value)" class="bg-purple-50 border border-purple-200 text-purple-900 py-0.5 px-2 rounded-md text-xs sm:text-sm font-medium focus:outline-none">
+      <!-- 選項由 JS 動態生成 -->
+    </select>
+  </header>
+
+  <!-- 主要內容區塊 -->
+  <main id="main-grid" class="flex-1 p-1.5 sm:p-2 grid grid-cols-2 md:grid-cols-4 grid-rows-4 md:grid-rows-2 gap-1.5 sm:gap-2 min-h-0">
+    <!-- 卡片由 JS 動態生成 -->
+  </main>
+
+  <!-- 底部統計 -->
+  <footer class="flex-none bg-white border-t border-purple-100 px-3 py-1.5 flex justify-between items-center text-xs sm:text-sm">
+    <div class="flex items-center gap-2">
+      <span class="text-gray-500">本週累計:</span>
+      <span id="total-value" class="font-bold text-purple-900 text-base">$0</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-gray-500">已核銷:</span>
+      <span id="used-value" class="font-semibold text-gray-700">$0</span>
+    </div>
+  </footer>
+
+  <!-- 新增優惠券彈出視窗 -->
+  <div id="add-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-2 z-50">
+    <div class="bg-white rounded-xl w-full max-w-[280px] shadow-xl">
+      <div class="p-3 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+        <h3 id="modal-title" class="text-sm font-bold text-gray-800">新增</h3>
+        <button onclick="closeModal()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      
+      <div class="p-3">
+        <label class="block text-[10px] text-gray-500 mb-2">請選擇抽中的券種</label>
+        <div id="modal-options" class="flex flex-wrap gap-2">
+          <!-- 選項由 JS 動態生成 -->
+        </div>
+      </div>
+
+      <div class="p-2 border-t flex gap-2">
+        <button onclick="closeModal()" class="flex-1 py-1.5 rounded-md text-xs bg-gray-100 text-gray-700">取消</button>
+        <button onclick="confirmAddVoucher()" class="flex-1 py-1.5 rounded-md text-xs bg-purple-600 text-white font-bold">確認</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 靜態數據 ---
+    const WEEKS = [
+      { id: 'w1', label: '第1週 (10/09 - 10/15)' },
+      { id: 'w2', label: '第2週 (10/16 - 10/22)' },
+      { id: 'w3', label: '第3週 (10/23 - 10/29)' },
+      { id: 'w4', label: '第4週 (10/30 - 11/05)' },
+      { id: 'w5', label: '第5週 (11/06 - 11/12)' },
+      { id: 'w6', label: '第6週 (11/13 - 11/19)' },
+      { id: 'w7', label: '第7週 (11/20 - 11/26)' },
+      { id: 'w8', label: '第8週 (11/27 - 12/03)' },
+      { id: 'w9', label: '第9週 (12/04 - 12/10)' },
+      { id: 'w10', label: '第10週 (12/11 - 12/17)' }
+    ];
+
+    const PLATFORMS = [
+      { id: 'taifung', name: '大豐', logo: 'TaiFung.webp', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+      { id: 'cgb', name: '廣發', logo: '廣發.webp', color: 'bg-red-50 text-red-700 border-red-200' },
+      { id: 'mpay', name: 'MPay', logo: 'MPay.webp', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+      { id: 'boc', name: '中銀', logo: 'BOC.webp', color: 'bg-red-50 text-red-800 border-red-200' },
+      { id: 'icbc', name: '工商', logo: 'ICBC.webp', color: 'bg-red-50 text-red-600 border-red-200' },
+      { id: 'luso', name: '國際', logo: '國際.webp', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+      { id: 'alipay', name: '支付寶', logo: '支付寶.webp', color: 'bg-blue-50 text-blue-500 border-blue-200' },
+      { id: 'uepay', name: 'UePay', logo: 'Uepay.webp', color: 'bg-green-50 text-green-700 border-green-200' }
+    ];
+
+    const VOUCHER_OPTIONS = [
+      { type: '電子優惠券', value: 10, label: '$10' },
+      { type: '電子優惠券', value: 20, label: '$20' },
+      { type: '電子優惠券', value: 50, label: '$50' },
+      { type: '電子優惠券', value: 100, label: '$100' },
+      { type: '電子優惠券', value: 200, label: '$200' },
+      { type: '商戶滿減券', value: 0, label: '商戶滿減券' },
+      { type: '商戶優惠券', value: 0, label: '商戶優惠券' }
+    ];
+
+    // SVG 圖標字串
+    const ICON_CLOCK = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-400 mr-0.5 hidden sm:block"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    const ICON_X = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
+    const ICON_PLUS = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`;
+
+    // --- 應用狀態 ---
+    let state = {
+      selectedWeek: WEEKS[0].id,
+      vouchers: [],
+      drawTimes: {},
+      modalPlatformId: null,
+      selectedOptionIndex: 0
+    };
+
+    // --- 儲存與讀取 ---
+    function loadData() {
+      const saved = localStorage.getItem('macauVoucherTracker');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          state.vouchers = parsed.vouchers || [];
+          state.drawTimes = parsed.drawTimes || {};
+        } catch (e) {
+          console.error("無法讀取存檔", e);
+        }
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem('macauVoucherTracker', JSON.stringify({
+        vouchers: state.vouchers,
+        drawTimes: state.drawTimes
+      }));
+    }
+
+    // --- 邏輯操作 ---
+    function changeWeek(weekId) {
+      state.selectedWeek = weekId;
+      renderApp();
+    }
+
+    function updateTime(platformId, time) {
+      const key = `${state.selectedWeek}_${platformId}`;
+      state.drawTimes[key] = time;
+      saveData();
+    }
+
+    function openModal(platformId) {
+      state.modalPlatformId = platformId;
+      state.selectedOptionIndex = 0; // 重置選項
+      renderModalOptions();
+      const platform = PLATFORMS.find(p => p.id === platformId);
+      document.getElementById('modal-title').innerText = `新增 - ${platform.name}`;
+      document.getElementById('add-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('add-modal').classList.add('hidden');
+      state.modalPlatformId = null;
+    }
+
+    function selectOption(index) {
+      state.selectedOptionIndex = index;
+      renderModalOptions();
+    }
+
+    function confirmAddVoucher() {
+      if (!state.modalPlatformId) return;
+      const option = VOUCHER_OPTIONS[state.selectedOptionIndex];
+      
+      const newVoucher = {
+        id: 'v_' + Date.now() + Math.random().toString(36).substr(2, 5),
+        weekId: state.selectedWeek,
+        platformId: state.modalPlatformId,
+        type: option.type,
+        value: option.value,
+        isUsed: false,
+        createdAt: Date.now()
+      };
+      
+      state.vouchers.push(newVoucher);
+      saveData();
+      closeModal();
+      renderApp();
+    }
+
+    function toggleVoucher(id, event) {
+      event.stopPropagation();
+      const v = state.vouchers.find(v => v.id === id);
+      if (v) {
+        v.isUsed = !v.isUsed;
+        saveData();
+        renderApp();
+      }
+    }
+
+    function deleteVoucher(id, event) {
+      event.stopPropagation();
+      state.vouchers = state.vouchers.filter(v => v.id !== id);
+      saveData();
+      renderApp();
+    }
+
+    // --- 介面渲染 ---
+    function getVoucherColorClass(v) {
+      if (v.isUsed) return 'bg-gray-200 text-gray-500 opacity-80 border-gray-300';
+      if (v.type === '商戶滿減券') return 'bg-orange-100 text-orange-900 border-orange-200';
+      if (v.type === '商戶優惠券') return 'bg-yellow-100 text-yellow-900 border-yellow-200';
+      switch (v.value) {
+        case 10: return 'bg-red-100 text-red-900 border-red-200';
+        case 20: return 'bg-purple-200 text-purple-900 border-purple-300';
+        case 50: return 'bg-[#d7ccc8] text-[#4e342e] border-[#bcaaa4]';
+        case 100: return 'bg-blue-200 text-blue-900 border-blue-300';
+        case 200: return 'bg-green-200 text-green-900 border-green-300';
+        default: return 'bg-gray-50 text-gray-800 border-gray-200';
+      }
+    }
+
+    function renderWeekSelector() {
+      const select = document.getElementById('week-selector');
+      if (select.children.length === 0) {
+        select.innerHTML = WEEKS.map(w => `<option value="${w.id}">${w.label}</option>`).join('');
+      }
+      select.value = state.selectedWeek;
+    }
+
+    function renderModalOptions() {
+      const container = document.getElementById('modal-options');
+      container.innerHTML = VOUCHER_OPTIONS.map((opt, idx) => {
+        const isSelected = state.selectedOptionIndex === idx;
+        const baseClass = "py-2 px-1 rounded-md font-bold text-center border transition-colors cursor-pointer";
+        const colorClass = isSelected 
+          ? "bg-purple-600 text-white border-purple-600 shadow-sm" 
+          : "bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100";
+        const widthClass = opt.type !== '電子優惠券' ? "w-full text-sm" : "flex-1 min-w-[28%] text-xs";
+        
+        return `<button onclick="selectOption(${idx})" class="${baseClass} ${colorClass} ${widthClass}">${opt.label}</button>`;
+      }).join('');
+    }
+
+    function renderApp() {
+      // 1. 更新下拉選單
+      renderWeekSelector();
+
+      // 2. 獲取當週資料並計算總額
+      const currentWeekVouchers = state.vouchers.filter(v => v.weekId === state.selectedWeek);
+      
+      let totalValue = 0;
+      let usedValue = 0;
+      currentWeekVouchers.forEach(v => {
+        totalValue += v.value;
+        if (v.isUsed) usedValue += v.value;
+      });
+
+      document.getElementById('total-value').innerText = `$${totalValue}`;
+      document.getElementById('used-value').innerText = `$${usedValue}`;
+
+      // 3. 渲染主網格
+      const grid = document.getElementById('main-grid');
+      let gridHTML = '';
+
+      PLATFORMS.forEach(platform => {
+        // 取出該平台當週的券並按時間排序
+        const pVouchers = currentWeekVouchers
+          .filter(v => v.platformId === platform.id)
+          .sort((a, b) => a.createdAt - b.createdAt);
+        
+        const timeKey = `${state.selectedWeek}_${platform.id}`;
+        const drawTime = state.drawTimes[timeKey] || '';
+
+        let slotsHTML = '';
+        for (let i = 0; i < 3; i++) {
+          const v = pVouchers[i];
+          if (v) {
+            const colorClass = getVoucherColorClass(v);
+            const lineThrough = v.isUsed ? 'line-through' : '';
+            
+            let contentHTML = '';
+            if (v.type === '電子優惠券') {
+              contentHTML = `
+                <span class="text-[14px] sm:text-[16px] font-black leading-none ${lineThrough}">$${v.value}</span>
+                <span class="text-[8px] sm:text-[9px] font-medium leading-none mt-0.5 truncate w-full text-center px-0.5">電子優惠</span>
+              `;
+            } else {
+              contentHTML = `<span class="text-[10px] sm:text-[11px] font-bold leading-tight text-center px-1 ${lineThrough}">${v.type}</span>`;
+            }
+
+            slotsHTML += `
+              <div onclick="toggleVoucher('${v.id}', event)" class="relative rounded-md border flex flex-col items-center justify-center cursor-pointer transition-all min-h-0 p-0.5 ${colorClass}" title="點擊切換使用狀態">
+                <button onclick="deleteVoucher('${v.id}', event)" class="absolute top-0 right-0 p-0.5 text-black/20 hover:text-red-500 z-10">${ICON_X}</button>
+                ${contentHTML}
+              </div>
+            `;
+          } else {
+            slotsHTML += `
+              <button onclick="openModal('${platform.id}')" class="rounded-md border border-dashed border-purple-200 flex items-center justify-center text-purple-300 hover:bg-purple-50 transition-colors min-h-0">
+                ${ICON_PLUS}
+              </button>
+            `;
+          }
+        }
+
+        gridHTML += `
+          <div class="bg-white rounded-lg p-1.5 shadow-sm border border-purple-100 flex flex-col min-h-0">
+            <!-- 標頭區 -->
+            <div class="flex items-center justify-between mb-1.5 flex-none">
+              <div class="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full border ${platform.color}">
+                <img src="${platform.logo}" alt="${platform.name}" class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full object-cover shadow-sm bg-white" onerror="this.style.display='none'">
+                ${platform.name}
+              </div>
+              <div class="flex items-center relative bg-purple-50 px-1 rounded border border-purple-100">
+                ${ICON_CLOCK}
+                <input type="time" value="${drawTime}" onchange="updateTime('${platform.id}', this.value)" class="text-[10px] sm:text-[11px] bg-transparent border-none focus:outline-none focus:ring-0 text-purple-800 p-0 m-0 h-4 w-[60px] sm:w-[65px] relative z-10">
+              </div>
+            </div>
+            <!-- 優惠券槽 -->
+            <div class="flex-1 grid grid-cols-3 gap-1 min-h-0">
+              ${slotsHTML}
+            </div>
+          </div>
+        `;
+      });
+
+      grid.innerHTML = gridHTML;
+    }
+
+    // --- 初始化 ---
+    window.onload = () => {
+      loadData();
+      renderApp();
+    };
+
+  </script>
+</body>
+</html>
