@@ -64,6 +64,13 @@
       top: 0;
       width: auto;
     }
+    
+    /* 隱藏選單預設箭頭讓畫面更緊湊 */
+    .hide-arrow {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
 
     /* iPhone 底部安全區域適配 */
     .safe-bottom {
@@ -186,6 +193,7 @@
       selectedWeek: WEEKS[0].id,
       vouchers: [],
       drawTimes: {},
+      drawDays: {}, // 儲存星期幾的狀態
       modalPlatformId: null,
       selectedOptionIndex: 0
     };
@@ -196,8 +204,12 @@
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
+          if (parsed.selectedWeek) {
+            state.selectedWeek = parsed.selectedWeek;
+          }
           state.vouchers = parsed.vouchers || [];
           state.drawTimes = parsed.drawTimes || {};
+          state.drawDays = parsed.drawDays || {}; // 讀取星期
         } catch (e) {
           console.error("無法讀取存檔", e);
         }
@@ -206,14 +218,17 @@
 
     function saveData() {
       localStorage.setItem('macauVoucherTracker', JSON.stringify({
+        selectedWeek: state.selectedWeek,
         vouchers: state.vouchers,
-        drawTimes: state.drawTimes
+        drawTimes: state.drawTimes,
+        drawDays: state.drawDays // 儲存星期
       }));
     }
 
     // --- 邏輯操作 ---
     function changeWeek(weekId) {
       state.selectedWeek = weekId;
+      saveData();
       renderApp();
     }
 
@@ -223,9 +238,15 @@
       saveData();
     }
 
+    function updateDay(platformId, day) {
+      const key = `${state.selectedWeek}_${platformId}`;
+      state.drawDays[key] = day;
+      saveData();
+    }
+
     function openModal(platformId) {
       state.modalPlatformId = platformId;
-      state.selectedOptionIndex = 0; // 重置選項
+      state.selectedOptionIndex = 0; 
       renderModalOptions();
       const platform = PLATFORMS.find(p => p.id === platformId);
       document.getElementById('modal-title').innerText = `新增 - ${platform.name}`;
@@ -349,6 +370,7 @@
         
         const timeKey = `${state.selectedWeek}_${platform.id}`;
         const drawTime = state.drawTimes[timeKey] || '';
+        const drawDay = state.drawDays[timeKey] || ''; // 取得選取的星期
 
         let slotsHTML = '';
         for (let i = 0; i < 3; i++) {
@@ -390,9 +412,17 @@
                 <img src="${platform.logo}" alt="${platform.name}" class="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full object-cover shadow-sm bg-white" onerror="this.style.display='none'">
                 ${platform.name}
               </div>
-              <div class="flex items-center relative bg-purple-50 px-1 rounded border border-purple-100">
-                ${ICON_CLOCK}
-                <input type="time" value="${drawTime}" onchange="updateTime('${platform.id}', this.value)" class="text-[10px] sm:text-[11px] bg-transparent border-none focus:outline-none focus:ring-0 text-purple-800 p-0 m-0 h-4 w-[60px] sm:w-[65px] relative z-10">
+              <div class="flex items-center bg-purple-50 rounded border border-purple-100 divide-x divide-purple-200">
+                <select onchange="updateDay('${platform.id}', this.value)" class="hide-arrow text-[10px] sm:text-[11px] font-bold bg-transparent border-none focus:outline-none focus:ring-0 text-purple-800 p-0.5 pl-1.5 cursor-pointer text-center" style="width: 28px;">
+                  <option value="" ${drawDay === '' ? 'selected' : ''}>-</option>
+                  <option value="五" ${drawDay === '五' ? 'selected' : ''}>五</option>
+                  <option value="六" ${drawDay === '六' ? 'selected' : ''}>六</option>
+                  <option value="日" ${drawDay === '日' ? 'selected' : ''}>日</option>
+                </select>
+                <div class="flex items-center pl-1 pr-1 relative">
+                  ${ICON_CLOCK}
+                  <input type="time" value="${drawTime}" onchange="updateTime('${platform.id}', this.value)" class="text-[10px] sm:text-[11px] bg-transparent border-none focus:outline-none focus:ring-0 text-purple-800 p-0 m-0 h-4 w-[60px] sm:w-[65px] relative z-10">
+                </div>
               </div>
             </div>
             <!-- 優惠券槽 -->
